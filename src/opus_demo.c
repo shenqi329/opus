@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 
 	char *inFile = argv[1];
 	char outFile[256];
-	char *opusData = NULL;
+	char opusData[640];
 	opus_int16 *pcmData[640];
 	char opusHeader[9];
 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 
 	if (argc == 1)
 	{
-		fprintf(stderr, "No input file %s\n");
+		fprintf(stderr, "No input file\n");
 		return EXIT_FAILURE;
 	}
 
@@ -109,9 +109,9 @@ int main(int argc, char *argv[])
 		{
 			break;
 		}
-		readCount = fread(pcmData,  1, length, fin);
+		readCount = fread(opusData,  1, length, fin);
 
-		int decodeCount = opus_decode(dec, opusData, 100, pcmData, sampling_rate*0.02, 0);
+		int decodeCount = opus_decode(dec, opusData, length, pcmData, sampling_rate*0.02, 0);
 		if (decodeCount <= 0) {
 			break;
 		}
