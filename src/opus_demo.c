@@ -40,13 +40,12 @@
 #include "opus_private.h"
 #include "opus_multistream.h"
 
+#include "stdio.h" 
+#include "windows.h"
+#include"io.h"
 
-int main(int argc, char *argv[])
-{
+void xtc_decode(char* inFile, char *outFile) {
 	FILE *fin, *fout;
-
-	char *inFile = argv[1];
-	char outFile[256];
 	char opusData[640];
 	opus_int16 *pcmData[640];
 	char opusHeader[9];
@@ -55,12 +54,6 @@ int main(int argc, char *argv[])
 	int channels = 1;
 	int err;
 
-	if (argc == 1)
-	{
-		fprintf(stderr, "No input file\n");
-		return EXIT_FAILURE;
-	}
-
 	fin = fopen(inFile, "rb");
 	if (!fin)
 	{
@@ -68,22 +61,20 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
+	int readCount = fread(opusHeader, 1, sizeof(opusHeader), fin);
+	if (memcmp(opusHeader, "!Opus.", 6) != 0) {
+		fprintf(stderr, "Not opus file:%s\n",inFile);
+		return;
+	}
+
 	strcpy(outFile, inFile);
-	strcat(outFile,".pcm");
+	strcat(outFile, ".pcm");
 	fout = fopen(outFile, "wb+");
 	if (!fout)
 	{
 		fprintf(stderr, "Could not open output file %s\n", outFile);
 		fclose(fin);
 		return EXIT_FAILURE;
-	}
-
-	
-
-	int readCount = fread(opusHeader,1,sizeof(opusHeader),fin);
-	if (memcmp(opusHeader,"!Opus.",6) != 0){
-		fprintf(stderr, "不是opus文件\n");
-		return;
 	}
 
 	short sampling_rate = *(short*)(opusHeader + 7);
@@ -104,23 +95,84 @@ int main(int argc, char *argv[])
 		{
 			break;
 		}
-		unsigned char length  = opusHeader[0];
-		if (length <= 0 )
+		unsigned char length = opusHeader[0];
+		if (length <= 0)
 		{
 			break;
 		}
-		readCount = fread(opusData,  1, length, fin);
+		readCount = fread(opusData, 1, length, fin);
 
 		int decodeCount = opus_decode(dec, opusData, length, pcmData, sampling_rate*0.02, 0);
 		if (decodeCount <= 0) {
 			break;
 		}
-		fwrite(pcmData,decodeCount*sizeof(opus_int16),1,fout);
+		fwrite(pcmData, decodeCount * sizeof(opus_int16), 1, fout);
 	} while (1);
 
-	fprintf(stdout, "decode result = %s,sample rate %d\n",outFile,sampling_rate);
+	fprintf(stdout, "decode result = %s,sample rate %d\n", outFile, sampling_rate);
 
 	fclose(fin);
 	fclose(fout);
+	return EXIT_SUCCESS;
+}
+
+int find_decode()
+{
+	char cwd[256];
+	char filePath[sizeof(cwd)];
+	char outFilePath[sizeof(cwd)];
+	_getcwd(cwd, sizeof(cwd));
+	strcpy(filePath,cwd);
+
+	strcat(filePath, "\\*.*");
+	struct _finddata_t files;
+	int File_Handle;
+	int i = 0;
+	File_Handle = _findfirst(filePath, &files);
+	if (File_Handle == -1)
+	{
+		printf("error\n");
+		return 0;
+	}
+
+	do
+	{
+		strcpy(filePath, cwd);
+		strcat(filePath, "/");
+		strcat(filePath, files.name);
+
+		strcpy(outFilePath, filePath);
+		strcat(outFilePath,".pcm");
+		if (files.attrib & _A_SUBDIR)
+		{
+			continue;
+		}
+		if (strstr(files.name, ".exe")) {
+			continue;
+		}
+		if (strstr(files.name, ".pcm")) {
+			continue;
+		}
+		xtc_decode(filePath, outFilePath);
+	} while (0 == _findnext(File_Handle, &files));
+	_findclose(File_Handle);
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	FILE *fin, *fout;
+
+	if (argc == 1){	
+		find_decode();
+	}
+	else if(argc == 2){
+		char *inFile = argv[1];
+		char outFile[256];
+		strcpy(outFile, inFile);
+		strcat(outFile, ".pcm");
+		xtc_decode(inFile, outFile);
+	}
+
 	return EXIT_SUCCESS;
 }
